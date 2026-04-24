@@ -39,8 +39,12 @@ spec:
             - name: http
               containerPort: 8000
           env:
+            # Bind to 0.0.0.0 so the kubelet can run HTTP probes against pod IP.
+            # NetworkPolicy is the real security boundary — no ingress rule
+            # allows port 8000 from outside this pod (sidecar connects via
+            # loopback 127.0.0.1:8000 at app layer).
             - name: HOST
-              value: 127.0.0.1
+              value: 0.0.0.0
             - name: PORT
               value: "8000"
             - name: PLATFORM_BASE_URL
@@ -53,14 +57,12 @@ spec:
             httpGet:
               path: /readyz
               port: 8000
-              host: 127.0.0.1
             initialDelaySeconds: 2
             periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /healthz
               port: 8000
-              host: 127.0.0.1
             initialDelaySeconds: 5
             periodSeconds: 30
           resources:
