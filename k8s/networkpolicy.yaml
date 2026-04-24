@@ -43,3 +43,16 @@ spec:
       ports:
         - port: 8000
           protocol: TCP
+    # cf-access-proxy fetches JWKS from amy-eli.cloudflareaccess.com:443 on every
+    # cache miss (~1/h). Allow public-internet egress; exclude private RFC1918
+    # ranges so this rule can't be used to reach internal services.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+              - 169.254.0.0/16
+      ports:
+        - { port: 443, protocol: TCP }
