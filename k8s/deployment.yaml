@@ -90,8 +90,8 @@ spec:
             - name: CF_ACCESS_TEAM_DOMAIN
               value: amy-eli.cloudflareaccess.com
             - name: CF_ACCESS_AUD
-              # Filled in by Phase 3 after the backlog-ui CF Access app is created.
-              value: REPLACE_WITH_BACKLOG_UI_AUD
+              # CF Access app `backlog-ui` (id fe5b8ff5-1317-44bc-833e-67fc10ce5a93)
+              value: df8721cc73d6043190118f4239d2cf792d51ca6fdb7214a70e4f2da17b478484
             - name: UPSTREAM_URL
               value: http://127.0.0.1:8000
             - name: LISTEN_PORT
