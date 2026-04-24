@@ -188,3 +188,51 @@ async def test_patch_status_does_not_retry_on_5xx():
             assert route.call_count == 1  # no retry
         finally:
             await c.aclose()
+
+
+@pytest.mark.asyncio
+async def test_list_items_forwards_jwt_header():
+    base = "http://fake:8000"
+    async with respx.mock(base_url=base) as mock:
+        mock.get("/api/v1/backlog/items").respond(
+            200, json={"items": [], "total": 0, "limit": 100, "offset": 0}
+        )
+        c = PlatformClient(base_url=base, timeout_s=2)
+        try:
+            await c.list_items(jwt="jwt-token-xyz")
+            sent = mock.calls.last.request
+            assert sent.headers.get("Cf-Access-Jwt-Assertion") == "jwt-token-xyz"
+        finally:
+            await c.aclose()
+
+
+@pytest.mark.asyncio
+async def test_patch_status_forwards_jwt_header():
+    base = "http://fake:8000"
+    async with respx.mock(base_url=base) as mock:
+        mock.patch("/api/v1/backlog/items/x/status").respond(
+            200, json={"item": {"id": "x", "status": "done"}}
+        )
+        c = PlatformClient(base_url=base, timeout_s=2)
+        try:
+            await c.patch_status("x", "done", jwt="jwt-token-xyz")
+            sent = mock.calls.last.request
+            assert sent.headers.get("Cf-Access-Jwt-Assertion") == "jwt-token-xyz"
+        finally:
+            await c.aclose()
+
+
+@pytest.mark.asyncio
+async def test_list_items_no_jwt_no_header():
+    base = "http://fake:8000"
+    async with respx.mock(base_url=base) as mock:
+        mock.get("/api/v1/backlog/items").respond(
+            200, json={"items": [], "total": 0, "limit": 100, "offset": 0}
+        )
+        c = PlatformClient(base_url=base, timeout_s=2)
+        try:
+            await c.list_items()
+            sent = mock.calls.last.request
+            assert "Cf-Access-Jwt-Assertion" not in sent.headers
+        finally:
+            await c.aclose()

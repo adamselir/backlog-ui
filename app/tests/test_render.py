@@ -138,3 +138,13 @@ def test_metrics_exposes_prometheus(client):
     r = client.get("/metrics")
     assert r.status_code == 200
     assert "backlog_ui_renders_total" in r.text
+
+
+def test_items_fragment_forwards_jwt_header(client):
+    with respx.mock(base_url="http://fake:8000") as mock:
+        route = mock.get("/api/v1/backlog/items").respond(
+            200, json={"items": [], "total": 0, "limit": 100, "offset": 0}
+        )
+        r = client.get("/items", headers={"Cf-Access-Jwt-Assertion": "user-jwt-xyz"})
+        assert r.status_code == 200
+        assert mock.calls.last.request.headers.get("Cf-Access-Jwt-Assertion") == "user-jwt-xyz"
