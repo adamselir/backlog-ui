@@ -1,0 +1,45 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backlog-ui
+  namespace: homelab-platform
+  labels:
+    app.kubernetes.io/name: backlog-ui
+    app.kubernetes.io/part-of: homelab-platform
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: backlog-ui
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare-tunnel
+      ports:
+        - port: 3001
+          protocol: TCP
+    # Monitoring can scrape /metrics (served on 8000 via the backlog-ui container,
+    # bypassing the sidecar SKIP_PATHS list — but the sidecar still sees the path).
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - port: 3001
+          protocol: TCP
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - { port: 53, protocol: UDP }
+        - { port: 53, protocol: TCP }
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: homelab-platform
+      ports:
+        - port: 8000
+          protocol: TCP

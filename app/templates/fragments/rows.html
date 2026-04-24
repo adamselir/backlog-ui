@@ -1,0 +1,5 @@
+{% if items %}
+  {% for item in items %}{% include "fragments/row.html" %}{% endfor %}
+{% else %}
+  <tr><td colspan="5">No items match the current filters.</td></tr>
+{% endif %}
