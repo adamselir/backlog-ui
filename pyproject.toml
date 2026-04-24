@@ -1,0 +1,39 @@
+[tool.poetry]
+name = "backlog-ui"
+version = "0.1.0"
+description = "HTMX frontend for homelab-platform backlog"
+authors = ["Eli Adams <eli@amy-eli.com>"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.13"
+fastapi = "^0.136"
+starlette = "^0.49.1"
+uvicorn = {version = "^0.34.0", extras = ["standard"]}
+httpx = "^0.28.0"
+jinja2 = "^3.1.0"
+pydantic-settings = "^2.0.0"
+prometheus-client = "^0.21.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^9.0.3"
+pytest-asyncio = "^1.0.0"
+respx = "^0.22.0"
+# playwright deferred — add if/when E2E test becomes worthwhile
+black = "^26.3.1"
+isort = "^6.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.black]
+line-length = 100
+target-version = ["py313"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
