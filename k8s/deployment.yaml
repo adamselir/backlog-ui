@@ -33,7 +33,7 @@ spec:
       containers:
         - name: backlog-ui
           # Digest is pinned in Task 2.7 after first CI build; :main is a placeholder here.
-          image: ghcr.io/adamselir/backlog-ui:main@sha256:80ddbd26dc658a9ee6cff9ddd72d55f274e2673d3264d2559229ddeb92a0f8d0
+          image: ghcr.io/adamselir/backlog-ui:main@sha256:b939429ad8664dd227bb825a63668b422a3411962d8a2abe2c2bff7c198660d1
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
