@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="topbar">
+  <h1>Backlog</h1>
+  <form id="filters" hx-get="/items" hx-target="#rows" hx-trigger="change, keyup changed delay:300ms from:input[name=q]">
+    <input name="q" type="search" placeholder="search title or description" value="{{ filters.q or '' }}">
+    <select name="priority" multiple>
+      {% for p in ["critical","high","medium","low"] %}
+      <option value="{{ p }}" {% if p in (filters.priority or []) %}selected{% endif %}>{{ p }}</option>
+      {% endfor %}
+    </select>
+    <select name="module" multiple>
+      {% for m in ["security","feature","infra","compliance","cost","dx"] %}
+      <option value="{{ m }}" {% if m in (filters.module or []) %}selected{% endif %}>{{ m }}</option>
+      {% endfor %}
+    </select>
+    <select name="status" multiple>
+      {% for s in ["open","in_progress","done","deferred","wontfix"] %}
+      <option value="{{ s }}" {% if s in (filters.status or []) %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
+  </form>
+</header>
+<section id="counts" hx-get="/items/counts" hx-trigger="load, refresh from:body" hx-target="this"></section>
+<table id="table">
+  <thead>
+    <tr><th>pri</th><th>module</th><th>status</th><th>title</th><th>updated</th></tr>
+  </thead>
+  <tbody id="rows" hx-get="/items" hx-trigger="load"></tbody>
+</table>
+{% endblock %}

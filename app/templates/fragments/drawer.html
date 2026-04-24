@@ -1,0 +1,13 @@
+<article class="drawer-card">
+  <header><strong>{{ item.title }}</strong> <small>{{ item.priority }}/{{ item.module or '-' }}</small></header>
+  <p>{{ item.description or '(no description)' }}</p>
+  {% if item.evidence %}<pre class="evidence">{{ item.evidence }}</pre>{% endif %}
+  {% if item.source_url %}<a href="{{ item.source_url }}">source</a>{% endif %}
+  <dl>
+    <dt>status</dt><dd>{{ item.status }}</dd>
+    <dt>severity</dt><dd>{{ item.severity or '-' }}</dd>
+    <dt>source</dt><dd>{{ item.source }}</dd>
+    <dt>first_seen</dt><dd>{{ item.first_seen }}</dd>
+    <dt>metadata</dt><dd><pre>{{ item.metadata | tojson(indent=2) }}</pre></dd>
+  </dl>
+</article>

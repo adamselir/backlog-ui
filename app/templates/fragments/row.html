@@ -1,0 +1,14 @@
+<tr id="row-{{ item.id }}" class="pri-{{ item.priority or 'none' }}" hx-get="/items/{{ item.id }}" hx-target="#drawer" hx-trigger="click">
+  <td>{{ item.priority or '-' }}</td>
+  <td>{{ item.module or '-' }}</td>
+  <td class="status-cell">
+    <form hx-patch="/items/{{ item.id }}/status" hx-target="#row-{{ item.id }}" hx-swap="outerHTML" hx-trigger="click from:button">
+      {% set next = {'open':'in_progress','in_progress':'done','done':'open'} %}
+      <button type="submit" name="status" value="{{ next.get(item.status, 'open') }}">
+        {{ item.status }}
+      </button>
+    </form>
+  </td>
+  <td>{{ item.title }}</td>
+  <td>{{ item.updated_at or '' }}</td>
+</tr>
