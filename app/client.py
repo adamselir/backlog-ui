@@ -30,6 +30,12 @@ class PlatformClient:
             return None
         return ",".join(values)
 
+    @staticmethod
+    def _auth_headers(jwt: str | None) -> dict[str, str] | None:
+        if not jwt:
+            return None
+        return {"Cf-Access-Jwt-Assertion": jwt}
+
     async def _get_with_retry(self, path: str, **kw) -> httpx.Response:
         last_exc: Exception | None = None
         response: httpx.Response | None = None
@@ -50,6 +56,7 @@ class PlatformClient:
     async def list_items(
         self,
         *,
+        jwt: str | None = None,
         priority: list[str] | None = None,
         module: list[str] | None = None,
         status: list[str] | None = None,
@@ -70,12 +77,20 @@ class PlatformClient:
         ):
             if v is not None:
                 params[k] = v
-        r = await self._get_with_retry("/api/v1/backlog/items", params=params)
+        kw: dict = {"params": params}
+        headers = self._auth_headers(jwt)
+        if headers is not None:
+            kw["headers"] = headers
+        r = await self._get_with_retry("/api/v1/backlog/items", **kw)
         r.raise_for_status()
         return r.json()
 
-    async def get_item(self, item_id: str) -> dict | None:
-        r = await self._get_with_retry(f"/api/v1/backlog/items/{item_id}")
+    async def get_item(self, item_id: str, *, jwt: str | None = None) -> dict | None:
+        kw: dict = {}
+        headers = self._auth_headers(jwt)
+        if headers is not None:
+            kw["headers"] = headers
+        r = await self._get_with_retry(f"/api/v1/backlog/items/{item_id}", **kw)
         if r.status_code == 404:
             return None
         r.raise_for_status()
@@ -84,6 +99,7 @@ class PlatformClient:
     async def counts(
         self,
         *,
+        jwt: str | None = None,
         priority: list[str] | None = None,
         module: list[str] | None = None,
         status: list[str] | None = None,
@@ -100,19 +116,29 @@ class PlatformClient:
         ):
             if v is not None:
                 params[k] = v
-        r = await self._get_with_retry("/api/v1/backlog/items/counts", params=params)
+        kw: dict = {"params": params}
+        headers = self._auth_headers(jwt)
+        if headers is not None:
+            kw["headers"] = headers
+        r = await self._get_with_retry("/api/v1/backlog/items/counts", **kw)
         r.raise_for_status()
         return r.json()
 
-    async def summary(self) -> dict:
-        r = await self._get_with_retry("/api/v1/backlog/summary")
+    async def summary(self, *, jwt: str | None = None) -> dict:
+        kw: dict = {}
+        headers = self._auth_headers(jwt)
+        if headers is not None:
+            kw["headers"] = headers
+        r = await self._get_with_retry("/api/v1/backlog/summary", **kw)
         r.raise_for_status()
         return r.json()
 
-    async def patch_status(self, item_id: str, status: str) -> dict:
+    async def patch_status(self, item_id: str, status: str, *, jwt: str | None = None) -> dict:
+        headers = self._auth_headers(jwt)
         r = await self._client.patch(
             f"/api/v1/backlog/items/{item_id}/status",
             json={"status": status},
+            headers=headers,
         )
         r.raise_for_status()
         return r.json()["item"]
