@@ -40,8 +40,14 @@ def register_routes(app: FastAPI, *, templates: Jinja2Templates, client: Platfor
             "sort": _csv(q.get("sort")),
         }
 
-    def _jwt_from(request: Request) -> str | None:
-        return request.headers.get("Cf-Access-Jwt-Assertion")
+    def _user_from(request: Request) -> str | None:
+        # cf-access-proxy validates the user's CF Access JWT and forwards
+        # the subject as `X-Cf-Access-User`. We propagate it to the platform
+        # via `X-Forwarded-User` purely for audit-log correlation; the
+        # cross-app trust is the service token, not this header.
+        return request.headers.get("X-Cf-Access-User") or request.headers.get(
+            "Cf-Access-Authenticated-User-Email"
+        )
 
     @r.get("/", response_class=HTMLResponse)
     async def root(request: Request):
@@ -57,7 +63,7 @@ def register_routes(app: FastAPI, *, templates: Jinja2Templates, client: Platfor
         params_nonnone = {k: v for k, v in params.items() if v is not None}
         try:
             with UI_API_LATENCY.labels("list_items").time():
-                data = await client.list_items(jwt=_jwt_from(request), **params_nonnone)
+                data = await client.list_items(forwarded_user=_user_from(request), **params_nonnone)
         except httpx.HTTPError:
             return templates.TemplateResponse(
                 "fragments/toast.html",
@@ -86,7 +92,7 @@ def register_routes(app: FastAPI, *, templates: Jinja2Templates, client: Platfor
         }
         try:
             with UI_API_LATENCY.labels("counts").time():
-                counts = await client.counts(jwt=_jwt_from(request), **params_nonnone)
+                counts = await client.counts(forwarded_user=_user_from(request), **params_nonnone)
         except httpx.HTTPError:
             return HTMLResponse('<div class="chips">—</div>')
         UI_RENDERS.labels("counts").inc()
@@ -98,7 +104,7 @@ def register_routes(app: FastAPI, *, templates: Jinja2Templates, client: Platfor
     async def drawer(request: Request, item_id: str):
         try:
             with UI_API_LATENCY.labels("get_item").time():
-                item = await client.get_item(item_id, jwt=_jwt_from(request))
+                item = await client.get_item(item_id, forwarded_user=_user_from(request))
         except httpx.HTTPError:
             raise HTTPException(status_code=502)
         if item is None:
@@ -112,7 +118,9 @@ def register_routes(app: FastAPI, *, templates: Jinja2Templates, client: Platfor
     async def patch_status(request: Request, item_id: str, status: str = Form(...)):
         try:
             with UI_API_LATENCY.labels("patch_status").time():
-                updated = await client.patch_status(item_id, status, jwt=_jwt_from(request))
+                updated = await client.patch_status(
+                    item_id, status, forwarded_user=_user_from(request)
+                )
         except httpx.HTTPStatusError as exc:
             return HTMLResponse(
                 f'<tr><td colspan="5">error: {exc.response.status_code}</td></tr>',

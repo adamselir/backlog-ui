@@ -140,11 +140,16 @@ def test_metrics_exposes_prometheus(client):
     assert "backlog_ui_renders_total" in r.text
 
 
-def test_items_fragment_forwards_jwt_header(client):
+def test_items_fragment_propagates_user_for_audit(client):
+    """Browser identity flows through as X-Forwarded-User; the cross-app
+    auth itself is the service token (verified separately in test_client)."""
     with respx.mock(base_url="http://fake:8000") as mock:
-        route = mock.get("/api/v1/backlog/items").respond(
+        mock.get("/api/v1/backlog/items").respond(
             200, json={"items": [], "total": 0, "limit": 100, "offset": 0}
         )
-        r = client.get("/items", headers={"Cf-Access-Jwt-Assertion": "user-jwt-xyz"})
+        r = client.get("/items", headers={"X-Cf-Access-User": "eli@amy-eli.com"})
         assert r.status_code == 200
-        assert mock.calls.last.request.headers.get("Cf-Access-Jwt-Assertion") == "user-jwt-xyz"
+        sent = mock.calls.last.request
+        assert sent.headers.get("X-Forwarded-User") == "eli@amy-eli.com"
+        # Browser JWT is never forwarded.
+        assert "Cf-Access-Jwt-Assertion" not in sent.headers

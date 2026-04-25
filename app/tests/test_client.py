@@ -191,39 +191,54 @@ async def test_patch_status_does_not_retry_on_5xx():
 
 
 @pytest.mark.asyncio
-async def test_list_items_forwards_jwt_header():
+async def test_list_items_sends_service_token_headers():
     base = "http://fake:8000"
     async with respx.mock(base_url=base) as mock:
         mock.get("/api/v1/backlog/items").respond(
             200, json={"items": [], "total": 0, "limit": 100, "offset": 0}
         )
-        c = PlatformClient(base_url=base, timeout_s=2)
+        c = PlatformClient(
+            base_url=base,
+            timeout_s=2,
+            cf_access_client_id="cid.access",
+            cf_access_client_secret="csec",
+        )
         try:
-            await c.list_items(jwt="jwt-token-xyz")
+            await c.list_items()
             sent = mock.calls.last.request
-            assert sent.headers.get("Cf-Access-Jwt-Assertion") == "jwt-token-xyz"
+            assert sent.headers.get("CF-Access-Client-Id") == "cid.access"
+            assert sent.headers.get("CF-Access-Client-Secret") == "csec"
+            # Browser JWT is NEVER forwarded — that's the whole point of using a
+            # service token for cross-app calls.
+            assert "Cf-Access-Jwt-Assertion" not in sent.headers
         finally:
             await c.aclose()
 
 
 @pytest.mark.asyncio
-async def test_patch_status_forwards_jwt_header():
+async def test_patch_status_sends_service_token_headers():
     base = "http://fake:8000"
     async with respx.mock(base_url=base) as mock:
         mock.patch("/api/v1/backlog/items/x/status").respond(
             200, json={"item": {"id": "x", "status": "done"}}
         )
-        c = PlatformClient(base_url=base, timeout_s=2)
+        c = PlatformClient(
+            base_url=base,
+            timeout_s=2,
+            cf_access_client_id="cid.access",
+            cf_access_client_secret="csec",
+        )
         try:
-            await c.patch_status("x", "done", jwt="jwt-token-xyz")
+            await c.patch_status("x", "done")
             sent = mock.calls.last.request
-            assert sent.headers.get("Cf-Access-Jwt-Assertion") == "jwt-token-xyz"
+            assert sent.headers.get("CF-Access-Client-Id") == "cid.access"
+            assert sent.headers.get("CF-Access-Client-Secret") == "csec"
         finally:
             await c.aclose()
 
 
 @pytest.mark.asyncio
-async def test_list_items_no_jwt_no_header():
+async def test_no_credentials_no_auth_headers():
     base = "http://fake:8000"
     async with respx.mock(base_url=base) as mock:
         mock.get("/api/v1/backlog/items").respond(
@@ -233,6 +248,29 @@ async def test_list_items_no_jwt_no_header():
         try:
             await c.list_items()
             sent = mock.calls.last.request
+            assert "CF-Access-Client-Id" not in sent.headers
+            assert "CF-Access-Client-Secret" not in sent.headers
             assert "Cf-Access-Jwt-Assertion" not in sent.headers
+        finally:
+            await c.aclose()
+
+
+@pytest.mark.asyncio
+async def test_forwarded_user_header_propagated():
+    base = "http://fake:8000"
+    async with respx.mock(base_url=base) as mock:
+        mock.get("/api/v1/backlog/items").respond(
+            200, json={"items": [], "total": 0, "limit": 100, "offset": 0}
+        )
+        c = PlatformClient(
+            base_url=base,
+            timeout_s=2,
+            cf_access_client_id="cid.access",
+            cf_access_client_secret="csec",
+        )
+        try:
+            await c.list_items(forwarded_user="eli@amy-eli.com")
+            sent = mock.calls.last.request
+            assert sent.headers.get("X-Forwarded-User") == "eli@amy-eli.com"
         finally:
             await c.aclose()

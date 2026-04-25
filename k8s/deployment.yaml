@@ -48,11 +48,21 @@ spec:
             - name: PORT
               value: "8000"
             - name: PLATFORM_BASE_URL
-              value: http://homelab-platform.homelab-platform.svc:8000
+              # Public URL — homelab-platform sits behind CF Access, so reaching
+              # it requires going through the tunnel + Access app (where the
+              # service token policy lives). Cluster-internal Service URL would
+              # bypass Access entirely.
+              value: https://homelab-platform.amy-eli.com
             - name: REQUEST_TIMEOUT_S
               value: "5"
             - name: LOG_LEVEL
               value: INFO
+          envFrom:
+            # CF_ACCESS_CLIENT_ID + CF_ACCESS_CLIENT_SECRET — service-token
+            # credentials for the `automation-backlog-ui` policy on the
+            # homelab-platform Access app. Sealed at k8s/sealedsecret-platform.yaml.
+            - secretRef:
+                name: backlog-ui-platform
           readinessProbe:
             httpGet:
               path: /readyz
