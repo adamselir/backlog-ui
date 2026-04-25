@@ -21,16 +21,25 @@ def create_app(
     *,
     platform_base_url: str | None = None,
     request_timeout_s: float | None = None,
+    cf_access_client_id: str | None = None,
+    cf_access_client_secret: str | None = None,
 ) -> FastAPI:
     overrides: dict = {}
     if platform_base_url is not None:
         overrides["platform_base_url"] = platform_base_url
+    if cf_access_client_id is not None:
+        overrides["cf_access_client_id"] = cf_access_client_id
+    if cf_access_client_secret is not None:
+        overrides["cf_access_client_secret"] = cf_access_client_secret
     settings = Settings(**overrides)
     if request_timeout_s is not None:
         settings.request_timeout_s = request_timeout_s
 
     client = PlatformClient(
-        base_url=settings.platform_base_url, timeout_s=settings.request_timeout_s
+        base_url=settings.platform_base_url,
+        timeout_s=settings.request_timeout_s,
+        cf_access_client_id=settings.cf_access_client_id,
+        cf_access_client_secret=settings.cf_access_client_secret,
     )
 
     @asynccontextmanager
