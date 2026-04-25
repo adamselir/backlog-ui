@@ -32,7 +32,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: backlog-ui
-          image: ghcr.io/adamselir/backlog-ui:main@sha256:009bcf6cf11fb28a5119cc0e5509415d1669ec8a92a83cbadd3c4816513c846b
+          image: ghcr.io/adamselir/backlog-ui:main@sha256:f141ec70b66011b6d3a7a59ad1e29037f0006083f3a2b029595e70cf01bab2fd
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
