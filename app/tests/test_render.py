@@ -117,6 +117,30 @@ def test_drawer_fragment_renders_item_detail(client):
         assert "full detail here" in r.text
 
 
+def test_drawer_includes_copy_prompt_button(client):
+    with respx.mock(base_url="http://fake:8000") as mock:
+        mock.get("/api/v1/backlog/items/x").respond(
+            200,
+            json={
+                "item": _item(
+                    id="x",
+                    severity="critical",
+                    source="migration:audit-history",
+                    metadata={
+                        "security": {"affected_resource": "host/dns-mcp"},
+                        "tags": ["tls", "migrated"],
+                    },
+                )
+            },
+        )
+        r = client.get("/items/x")
+        assert r.status_code == 200
+        assert "copy-prompt-btn" in r.text
+        assert "audit-coordinator" in r.text
+        assert "host/dns-mcp" in r.text
+        assert "tls" in r.text
+
+
 def test_drawer_unknown_id_404(client):
     with respx.mock(base_url="http://fake:8000") as mock:
         mock.get("/api/v1/backlog/items/missing").respond(

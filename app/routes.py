@@ -111,8 +111,33 @@ def register_routes(app: FastAPI, *, templates: Jinja2Templates, client: Platfor
             raise HTTPException(status_code=404)
         UI_RENDERS.labels("drawer").inc()
         return templates.TemplateResponse(
-            "fragments/drawer.html", {"request": request, "item": item}
+            "fragments/drawer.html",
+            {"request": request, "item": item, "claude_prompt": _build_prompt(item)},
         )
+
+    def _build_prompt(item: dict) -> str:
+        meta = item.get("metadata") or {}
+        sec = meta.get("security") or {}
+        tags = meta.get("tags") or []
+        lines = [
+            f"audit-coordinator: investigate finding {item.get('id', '')}",
+            f"title: {item.get('title', '')}",
+            (
+                f"severity: {item.get('severity') or '-'}"
+                f" | priority: {item.get('priority', '')}"
+                f" | module: {item.get('module') or '-'}"
+            ),
+            f"status: {item.get('status', '')} | source: {item.get('source', '')}",
+        ]
+        if sec.get("affected_resource"):
+            lines.append(f"affected_resource: {sec['affected_resource']}")
+        if tags:
+            lines.append(f"tags: {', '.join(tags)}")
+        lines += [
+            "",
+            f"Use backlog_get with id={item.get('id', '')} to load full context, then investigate and remediate.",
+        ]
+        return "\n".join(lines)
 
     @r.patch("/items/{item_id}/status", response_class=HTMLResponse)
     async def patch_status(request: Request, item_id: str, status: str = Form(...)):
