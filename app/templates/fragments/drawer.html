@@ -1,5 +1,9 @@
 <article class="drawer-card">
-  <header><strong>{{ item.title }}</strong> <small>{{ item.priority }}/{{ item.module or '-' }}</small></header>
+  <header>
+    <strong>{{ item.title }}</strong>
+    <small>{{ item.priority }}/{{ item.module or '-' }}</small>
+    <button class="copy-prompt-btn" data-prompt="{{ claude_prompt | e }}" onclick="copyItemPrompt(this)">Copy prompt</button>
+  </header>
   <p>{{ item.description or '(no description)' }}</p>
   {% if item.evidence %}<pre class="evidence">{{ item.evidence }}</pre>{% endif %}
   {% if item.source_url %}<a href="{{ item.source_url }}">source</a>{% endif %}
@@ -11,3 +15,11 @@
     <dt>metadata</dt><dd><pre>{{ item.metadata | tojson(indent=2) }}</pre></dd>
   </dl>
 </article>
+<script>
+function copyItemPrompt(btn) {
+  navigator.clipboard.writeText(btn.dataset.prompt).then(() => {
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Copy prompt'; }, 2000);
+  });
+}
+</script>
