@@ -36,16 +36,11 @@ spec:
       ports:
         - { port: 53, protocol: UDP }
         - { port: 53, protocol: TCP }
-    - to:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: homelab-platform
-      ports:
-        - port: 8000
-          protocol: TCP
-    # cf-access-proxy fetches JWKS from amy-eli.cloudflareaccess.com:443 on every
-    # cache miss (~1/h). Allow public-internet egress; exclude private RFC1918
-    # ranges so this rule can't be used to reach internal services.
+    # 443/TCP to public internet (RFC1918 excluded). Two consumers:
+    # 1. cf-access-proxy fetches JWKS from amy-eli.cloudflareaccess.com on cache miss.
+    # 2. backlog-ui app calls homelab-platform.amy-eli.com via the public hostname so
+    #    requests traverse CF Access (where the service-token policy lives). The
+    #    cluster-internal Service URL would bypass Access entirely.
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0
