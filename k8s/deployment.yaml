@@ -32,7 +32,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: backlog-ui
-          image: ghcr.io/adamselir/backlog-ui:main@sha256:f141ec70b66011b6d3a7a59ad1e29037f0006083f3a2b029595e70cf01bab2fd
+          image: ghcr.io/adamselir/backlog-ui:main@sha256:c644c8b1492a0e26665152ec38552b33137ee3af38a52d4a693b2f4b669b286c
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -90,7 +90,7 @@ spec:
             - name: tmp
               mountPath: /tmp
         - name: cf-access-proxy
-          image: ghcr.io/adamselir/cf-access-proxy:0.2.3@sha256:8791f84263adcac687f84798f8fd2661381464981deb7937054673a0df42f74c
+          image: ghcr.io/adamselir/cf-access-proxy:0.2.4:fec05bdf3dec07604f3b5956a184c6d8c9ec1b889e1e4a85e27e0f60a545ba6c
           imagePullPolicy: IfNotPresent
           ports:
             - name: https
