@@ -22,6 +22,11 @@ spec:
         app.kubernetes.io/name: backlog-ui
         app.kubernetes.io/part-of: homelab-platform
     spec:
+      # cf-access-proxy is a private GHCR package — the sidecar needs creds to
+      # pull it (the backlog-ui app image is public, so the pod otherwise had no
+      # pull secret and the sidecar pull failed with anonymous 401).
+      imagePullSecrets:
+        - name: ghcr-secret
       automountServiceAccountToken: false
       securityContext:
         runAsUser: 1000
