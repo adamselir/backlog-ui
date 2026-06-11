@@ -53,8 +53,9 @@ def register_routes(app: FastAPI, *, templates: Jinja2Templates, client: Platfor
     async def root(request: Request):
         UI_RENDERS.labels("list").inc()
         return templates.TemplateResponse(
+            request,
             "list.html",
-            {"request": request, "filters": _filter_params(request)},
+            {"filters": _filter_params(request)},
         )
 
     @r.get("/items", response_class=HTMLResponse)
@@ -66,17 +67,17 @@ def register_routes(app: FastAPI, *, templates: Jinja2Templates, client: Platfor
                 data = await client.list_items(forwarded_user=_user_from(request), **params_nonnone)
         except httpx.HTTPError:
             return templates.TemplateResponse(
+                request,
                 "fragments/toast.html",
                 {
-                    "request": request,
                     "message": "Could not load items — retrying on next refresh",
                 },
             )
         UI_RENDERS.labels("rows").inc()
         return templates.TemplateResponse(
+            request,
             "fragments/rows.html",
             {
-                "request": request,
                 "items": data["items"],
                 "total": data["total"],
             },
@@ -96,9 +97,7 @@ def register_routes(app: FastAPI, *, templates: Jinja2Templates, client: Platfor
         except httpx.HTTPError:
             return HTMLResponse('<div class="chips">—</div>')
         UI_RENDERS.labels("counts").inc()
-        return templates.TemplateResponse(
-            "fragments/counts.html", {"request": request, "counts": counts}
-        )
+        return templates.TemplateResponse(request, "fragments/counts.html", {"counts": counts})
 
     @r.get("/items/{item_id}", response_class=HTMLResponse)
     async def drawer(request: Request, item_id: str):
@@ -111,8 +110,9 @@ def register_routes(app: FastAPI, *, templates: Jinja2Templates, client: Platfor
             raise HTTPException(status_code=404)
         UI_RENDERS.labels("drawer").inc()
         return templates.TemplateResponse(
+            request,
             "fragments/drawer.html",
-            {"request": request, "item": item, "claude_prompt": _build_prompt(item)},
+            {"item": item, "claude_prompt": _build_prompt(item)},
         )
 
     def _build_prompt(item: dict) -> str:
@@ -154,9 +154,7 @@ def register_routes(app: FastAPI, *, templates: Jinja2Templates, client: Platfor
         except httpx.HTTPError:
             raise HTTPException(status_code=502)
         UI_RENDERS.labels("row_after_patch").inc()
-        return templates.TemplateResponse(
-            "fragments/row.html", {"request": request, "item": updated}
-        )
+        return templates.TemplateResponse(request, "fragments/row.html", {"item": updated})
 
     @r.get("/healthz")
     async def healthz():
