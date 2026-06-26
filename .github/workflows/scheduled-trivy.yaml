@@ -1,0 +1,41 @@
+name: Scheduled Trivy Rescan
+
+# Proactive weekly re-scan: rebuild the image from source and fail on fixable
+# HIGH/CRITICAL CVEs, so vulnerabilities surface without waiting for a code push.
+on:
+  schedule:
+    - cron: "39 6 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  rescan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image (load locally for scan)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: backlog-ui:rescan
+
+      - name: Trivy — fail on fixable HIGH/CRITICAL
+        # Pinned upstream container to avoid the aquasecurity/trivy-action supply-chain
+        # advisory (GHSA-69fq-xp46-6x23) — calling the container directly drops the action layer.
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:0.55.0 image \
+              --exit-code 1 \
+              --ignore-unfixed \
+              --severity HIGH,CRITICAL \
+              --vuln-type os,library \
+              --no-progress \
+              backlog-ui:rescan
