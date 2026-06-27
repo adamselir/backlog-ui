@@ -5,23 +5,19 @@ FROM python:3.13-slim AS builder
 
 ENV POETRY_VERSION=2.3.3 \
     POETRY_HOME=/opt/poetry \
-    POETRY_VIRTUALENVS_CREATE=false \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 RUN pip install --no-cache-dir "poetry==${POETRY_VERSION}"
 
-WORKDIR /src
+WORKDIR /app
 COPY pyproject.toml poetry.lock ./
 
-# Install runtime deps only (exclude dev group), then strip build-time tooling.
-RUN poetry install --no-root --only=main \
- && pip uninstall -y \
-      poetry poetry-core poetry-plugin-export \
-      keyring cleo dulwich \
-      SecretStorage jeepney \
-      crashtest build installer \
-    || true
+# Install runtime deps only (exclude dev group) into an in-project venv. Only the
+# app's runtime deps land in /app/.venv; the Poetry toolchain (poetry/dulwich/
+# cleo/…) is never copied into the runtime image.
+RUN poetry config virtualenvs.in-project true \
+ && poetry install --no-interaction --no-ansi --only main --no-root
 
 # ---------- runtime ----------
 FROM python:3.13-slim
@@ -35,9 +31,9 @@ RUN addgroup --system --gid 1000 app \
 
 WORKDIR /app
 
-# Copy site-packages + scripts (uvicorn entry) from builder
-COPY --from=builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
+# Copy only the app's runtime venv from the builder (no Poetry toolchain).
+COPY --from=builder /app/.venv /app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
 
 # Application code (templates + static + python)
 COPY app ./app
