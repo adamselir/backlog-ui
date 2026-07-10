@@ -95,7 +95,7 @@ spec:
             - name: tmp
               mountPath: /tmp
         - name: cf-access-proxy
-          image: ghcr.io/adamselir/cf-access-proxy:0.2.4@sha256:fec05bdf3dec07604f3b5956a184c6d8c9ec1b889e1e4a85e27e0f60a545ba6c
+          image: ghcr.io/adamselir/cf-access-proxy:0.2.5@sha256:6da98a6dab669d1939b2475d17f842278f095ce23687d7fcac64f52ea2efaba3
           imagePullPolicy: IfNotPresent
           ports:
             - name: https
