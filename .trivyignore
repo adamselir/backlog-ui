@@ -1,0 +1,22 @@
+# Trivy ignore file
+#
+# Added 2026-08-01 — EXPIRES / re-review 2026-09-01.
+#
+# msgpack and setuptools are NOT dependencies of this application: neither
+# appears in poetry.lock and nothing in the app imports them. They exist purely
+# as code vendored inside pip:
+#
+#   /usr/local/lib/python3.13/site-packages/pip/_vendor/msgpack
+#   /usr/local/lib/python3.13/site-packages/pip/_vendor/pkg_resources
+#
+# Trivy 0.55.0 resolves python-pkg metadata from the image's layer history
+# rather than the final squashed filesystem, and pip ships inside the
+# python:3.13-slim base layer — so even deleting the whole pip toolchain in a
+# later layer does not retract the finding. Verified in adamselir/audit-runner
+# with a --no-cache rebuild plus an in-image `find /`: the files are genuinely
+# absent from the running container, yet Trivy still reports them.
+#
+# Drop both entries when the pinned Trivy version is upgraded; newer releases
+# may resolve layer whiteouts correctly.
+GHSA-6v7p-g79w-8964  # msgpack — vendored inside pip
+CVE-2025-47273       # setuptools/pkg_resources — vendored inside pip
