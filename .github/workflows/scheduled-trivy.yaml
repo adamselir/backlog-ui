@@ -32,7 +32,9 @@ jobs:
         run: |
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "${GITHUB_WORKSPACE}/.trivyignore:/.trivyignore" \
             aquasec/trivy:0.55.0 image \
+              --ignorefile /.trivyignore \
               --exit-code 1 \
               --ignore-unfixed \
               --severity HIGH,CRITICAL \
