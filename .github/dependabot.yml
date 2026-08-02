@@ -8,6 +8,15 @@ updates:
     labels:
       - dependencies
       - python
+    # Collapse routine churn into one PR per ecosystem per week. Security
+    # updates deliberately stay ungrouped (applies-to: version-updates) so they
+    # arrive as their own legible PR.
+    groups:
+      python-minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: github-actions
     directory: /
@@ -17,6 +26,15 @@ updates:
     labels:
       - dependencies
       - github-actions
+    # Collapse routine churn into one PR per ecosystem per week. Security
+    # updates deliberately stay ungrouped (applies-to: version-updates) so they
+    # arrive as their own legible PR.
+    groups:
+      actions-all:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
 
   - package-ecosystem: docker
     directory: /
@@ -26,3 +44,12 @@ updates:
     labels:
       - dependencies
       - docker
+    # Collapse routine churn into one PR per ecosystem per week. Security
+    # updates deliberately stay ungrouped (applies-to: version-updates) so they
+    # arrive as their own legible PR.
+    groups:
+      docker-all:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
