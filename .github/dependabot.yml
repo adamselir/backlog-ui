@@ -8,10 +8,14 @@ updates:
     labels:
       - dependencies
       - python
-    # Collapse routine churn into one PR per ecosystem per week. Security
-    # updates deliberately stay ungrouped (applies-to: version-updates) so they
-    # arrive as their own legible PR.
     groups:
+      # Dev tooling moves fast and cannot break production — group all of it,
+      # majors included (isort 6->8, mypy 1->2 etc).
+      python-dev:
+        applies-to: version-updates
+        dependency-type: development
+      # Runtime deps: group minor/patch only. Majors stay individual so a
+      # breaking bump (mcp 2.x) is reviewed on its own.
       python-minor-and-patch:
         applies-to: version-updates
         update-types:
@@ -26,15 +30,14 @@ updates:
     labels:
       - dependencies
       - github-actions
-    # Collapse routine churn into one PR per ecosystem per week. Security
-    # updates deliberately stay ungrouped (applies-to: version-updates) so they
-    # arrive as their own legible PR.
     groups:
+      # Group ALL action updates including majors. Actions are pinned by major
+      # tag and CI verifies them, so 35 separate PRs (actions/checkout 4->7,
+      # setup-python 5->7, docker/* 3->4) is pure noise.
       actions-all:
         applies-to: version-updates
-        update-types:
-          - minor
-          - patch
+        patterns:
+          - "*"
 
   - package-ecosystem: docker
     directory: /
@@ -44,12 +47,14 @@ updates:
     labels:
       - dependencies
       - docker
-    # Collapse routine churn into one PR per ecosystem per week. Security
-    # updates deliberately stay ungrouped (applies-to: version-updates) so they
-    # arrive as their own legible PR.
+    # python:3.14-slim has no prebuilt wheel for at least one dependency, so the
+    # build falls back to compiling and dies (slim ships no gcc). Verified in
+    # audit-runner. Revisit when upstream wheels land.
+    ignore:
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major"]
     groups:
       docker-all:
         applies-to: version-updates
-        update-types:
-          - minor
-          - patch
+        patterns:
+          - "*"
