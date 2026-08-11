@@ -1,0 +1,165 @@
+name: Dependabot auto-merge
+
+# Why this exists instead of GitHub's native auto-merge
+# ----------------------------------------------------
+# Native auto-merge only waits for REQUIRED status checks, and required checks
+# come from branch protection / rulesets. Both are unavailable here: these repos
+# are private on a free plan, so the API returns 403 "Upgrade to GitHub Pro".
+# With no required checks, `gh pr merge --auto` merges IMMEDIATELY — before the
+# Trivy image gate runs. That is strictly worse than merging by hand.
+#
+# So this fires only after a build workflow has finished, and then re-verifies
+# every check run on the PR head commit before merging. Since 2026-08-11 the
+# build workflow runs the Trivy image scan on pull requests, so "all checks
+# green" now genuinely means "this image was scanned".
+#
+# Policy: merge only when NO dependency crosses a major version. Majors always
+# wait for a human — including major *security* bumps (e.g. cryptography
+# 49 -> 50). Anything the parser cannot read is skipped, not merged.
+
+on:
+  workflow_run:
+    # Superset of build-workflow names across the fleet; a name that does not
+    # exist in a given repo simply never fires.
+    workflows: ["Build and Push", "CI", "build"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    if: >
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.actor.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require a merge token
+        id: token
+        env:
+          AUTOMERGE_TOKEN: ${{ secrets.AUTOMERGE_TOKEN }}
+        run: |
+          if [ -z "${AUTOMERGE_TOKEN}" ]; then
+            echo "::warning::AUTOMERGE_TOKEN not set — skipping auto-merge."
+            echo "A PAT is required. A merge performed with the default GITHUB_TOKEN"
+            echo "does NOT trigger the push-to-main build, so the image would never be"
+            echo "rebuilt and the dependency fix would stay undeployed. Create a"
+            echo "fine-grained PAT (Contents: read+write, Pull requests: read+write)"
+            echo "and store it as the AUTOMERGE_TOKEN repository secret."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Resolve the pull request
+        id: pr
+        if: steps.token.outputs.ok == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.AUTOMERGE_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          num=$(gh api "repos/${REPO}/commits/${SHA}/pulls" \
+                  --jq '[.[] | select(.state == "open")][0].number // empty')
+          if [ -z "$num" ]; then
+            echo "No open PR for ${SHA}."
+            echo "found=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          json=$(gh api "repos/${REPO}/pulls/${num}")
+          author=$(echo "$json" | jq -r '.user.login')
+          same=$(echo "$json" | jq -r '.head.repo.full_name == .base.repo.full_name')
+          draft=$(echo "$json" | jq -r '.draft')
+          base=$(echo "$json" | jq -r '.base.ref')
+          if [ "$author" != "dependabot[bot]" ] || [ "$same" != "true" ] \
+             || [ "$draft" != "false" ] || [ "$base" != "${{ github.event.repository.default_branch }}" ]; then
+            echo "PR #${num} not eligible (author=$author same_repo=$same draft=$draft base=$base)."
+            echo "found=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          echo "$json" | jq -r '.body // ""' > /tmp/pr_body.txt
+          echo "found=true" >> "$GITHUB_OUTPUT"
+          echo "number=${num}" >> "$GITHUB_OUTPUT"
+
+      - name: Apply the no-majors policy
+        id: policy
+        if: steps.pr.outputs.found == 'true'
+        run: |
+          set -uo pipefail
+          # Only the header region is trustworthy. Everything from the first
+          # <details> onward is Dependabot's embedded release notes, which are
+          # full of unrelated version numbers and CVE ids — parsing them yields
+          # false "major" verdicts on minor-only group PRs.
+          head_region=$(sed '/<details>/,$d' /tmp/pr_body.txt)
+
+          # Grouped PR: markdown table rows -> "name from to"
+          pairs=$(printf '%s\n' "$head_region" \
+            | grep -oE '^\| \[?([A-Za-z0-9._-]+)\]?[^|]*\| `[^`]+` \| `[^`]+` \|' \
+            | sed -E 's/^\| \[?([A-Za-z0-9._-]+)\]?[^|]*\| `([^`]+)` \| `([^`]+)` \|/\1 \2 \3/')
+
+          # Single-dependency PR: "Bumps [name](url) from A to B."
+          if [ -z "$pairs" ]; then
+            pairs=$(printf '%s\n' "$head_region" \
+              | grep -oE '^Bumps \[?([A-Za-z0-9._-]+)\]?[^ ]* from [0-9][0-9A-Za-z.+-]* to [0-9][0-9A-Za-z.+-]*' \
+              | sed -E 's/^Bumps \[?([A-Za-z0-9._-]+)\]?[^ ]* from ([0-9][0-9A-Za-z.+-]*) to ([0-9][0-9A-Za-z.+-]*)/\1 \2 \3/')
+          fi
+
+          if [ -z "$pairs" ]; then
+            echo "Could not parse any version pair — refusing to merge."
+            echo "merge=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+
+          echo "Parsed bumps:"; printf '%s\n' "$pairs" | sed 's/^/  /'
+          major=0
+          while read -r name from to; do
+            [ -z "${name:-}" ] && continue
+            if [ "${from%%.*}" != "${to%%.*}" ]; then
+              echo "MAJOR: ${name} ${from} -> ${to}"; major=1
+            fi
+          done <<< "$pairs"
+
+          if [ "$major" -eq 1 ]; then
+            echo "Major bump present — leaving for manual review."
+            echo "merge=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "All bumps are patch/minor."
+            echo "merge=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Re-verify every check on the head commit
+        id: checks
+        if: steps.policy.outputs.merge == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.AUTOMERGE_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          # Do not trust this single workflow_run: a repo may run several
+          # workflows, and the image gate must not be bypassed by a green run
+          # from an unrelated one.
+          runs=$(gh api "repos/${REPO}/commits/${SHA}/check-runs" --paginate \
+                   --jq '.check_runs[] | select((.name | test("auto-merge"; "i")) | not)
+                         | "\(.status):\(.conclusion // "none"):\(.name)"')
+          echo "$runs"
+          if printf '%s\n' "$runs" | grep -qv '^completed:'; then
+            echo "Checks still running — not merging on this pass."
+            echo "ok=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if printf '%s\n' "$runs" | grep -qvE '^completed:(success|skipped|neutral):'; then
+            echo "Failing checks present — not merging."
+            echo "ok=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          echo "ok=true" >> "$GITHUB_OUTPUT"
+
+      - name: Merge
+        if: steps.checks.outputs.ok == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.AUTOMERGE_TOKEN }}
+          REPO: ${{ github.repository }}
+          NUM: ${{ steps.pr.outputs.number }}
+        run: |
+          set -euo pipefail
+          gh pr merge "$NUM" --repo "$REPO" --squash --delete-branch
+          echo "Merged #${NUM}."
