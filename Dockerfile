@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 # ---------- builder ----------
-FROM python:3.13-slim AS builder
+FROM python:3.14-slim AS builder
 
 ENV POETRY_VERSION=2.3.3 \
     POETRY_HOME=/opt/poetry \
@@ -20,7 +20,7 @@ RUN poetry config virtualenvs.in-project true \
  && poetry install --no-interaction --no-ansi --only main --no-root
 
 # ---------- runtime ----------
-FROM python:3.13-slim
+FROM python:3.14-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
