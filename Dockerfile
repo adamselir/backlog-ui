@@ -25,6 +25,14 @@ FROM python:3.13-slim
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
+# python:3.13-slim lags Debian security updates: the 2026-10-01 base still ships
+# libpcre2-8-0 10.46-1~deb13u2 (CVE-2026-103111, HIGH; fixed in deb13u3 on
+# trixie-security). Patch just that package in-image rather than allowlisting
+# it. Drop this once the upstream base ships deb13u3.
+RUN apt-get update \
+    && apt-get install -y --only-upgrade --no-install-recommends libpcre2-8-0 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Non-root user (uid 1000 to match k8s securityContext)
 RUN addgroup --system --gid 1000 app \
  && adduser  --system --uid 1000 --ingroup app --home /app --shell /usr/sbin/nologin app
