@@ -20,3 +20,16 @@
 # may resolve layer whiteouts correctly.
 GHSA-6v7p-g79w-8964  # msgpack — vendored inside pip
 CVE-2025-47273       # setuptools/pkg_resources — vendored inside pip
+
+# Added 2026-10-02 — EXPIRES / re-review 2026-11-01.
+#
+# urllib3 is NOT a dependency of this application: it is absent from
+# poetry.lock and nothing imports it. The flagged urllib3 2.7.0 is the copy
+# vendored inside pip (pip/_vendor/vendor.txt pins urllib3==2.7.0 in pip
+# 26.2.1, the latest release as of 2026-10-02), shipped in the
+# python:3.13-slim base layer. Trivy 0.55 reports pip-vendored packages from
+# the base layer, so no later layer (pip upgrade or deletion) retracts it.
+# Drop these once a pip release vendors urllib3 >= 2.8.0 and python:3.13-slim
+# is rebuilt with it.
+CVE-2026-97687       # urllib3 — vendored inside pip (HTTPS proxy TLS interception)
+CVE-2026-97689       # urllib3 — vendored inside pip (unbounded memory DoS)
