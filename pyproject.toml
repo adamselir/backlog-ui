@@ -16,6 +16,7 @@ pydantic-settings = "^2.0.0"
 prometheus-client = "^0.21.0"
 python-multipart = ">=0.0.30"  # CVE-2026-42561, CVE-2026-53539
 anyio = ">=4.14.2"  # CVE-2026-63374 (CRITICAL; transitive via starlette/httpx; floor to clear Trivy)
+certifi = ">=2026.10.18"  # GHSA-6q48-6c7w-9gw2 (CRITICAL; emSign roots with compromised intermediates; transitive via httpx)
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.0.3"
