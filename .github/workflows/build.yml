@@ -39,12 +39,17 @@ jobs:
       - name: Build image for scan
         run: docker build -t scan:pr .
       - name: Trivy scan
+        # --skip-files: pip ships pip/_vendor/bom.cdx.json, a CycloneDX SBOM of the
+        # packages it vendors, and Trivy 0.55 reports every entry as installed. pip
+        # never runs in this image, so skip that one file rather than allowlisting each
+        # vendored CVE (msgpack, setuptools, urllib3, ...) as it lands.
         run: |
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v "${GITHUB_WORKSPACE}/.trivyignore:/.trivyignore" \
             aquasec/trivy:0.55.0 image \
               --ignorefile /.trivyignore \
+              --skip-files '**/site-packages/pip/_vendor/bom.cdx.json' \
               --severity HIGH,CRITICAL \
               --ignore-unfixed \
               --exit-code 1 \

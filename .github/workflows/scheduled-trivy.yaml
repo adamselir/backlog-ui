@@ -29,12 +29,17 @@ jobs:
       - name: Trivy — fail on fixable HIGH/CRITICAL
         # Pinned upstream container to avoid the aquasecurity/trivy-action supply-chain
         # advisory (GHSA-69fq-xp46-6x23) — calling the container directly drops the action layer.
+        # --skip-files: pip ships pip/_vendor/bom.cdx.json, a CycloneDX SBOM of the
+        # packages it vendors, and Trivy 0.55 reports every entry as installed. pip
+        # never runs in this image, so skip that one file rather than allowlisting each
+        # vendored CVE (msgpack, setuptools, urllib3, ...) as it lands.
         run: |
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v "${GITHUB_WORKSPACE}/.trivyignore:/.trivyignore" \
             aquasec/trivy:0.55.0 image \
               --ignorefile /.trivyignore \
+              --skip-files '**/site-packages/pip/_vendor/bom.cdx.json' \
               --exit-code 1 \
               --ignore-unfixed \
               --severity HIGH,CRITICAL \
