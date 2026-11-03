@@ -5,3 +5,8 @@ resources:
   - service.yaml
   - networkpolicy.yaml
   - sealedsecret-platform.yaml
+
+# Pinned to the commit's image by the deploy job in .github/workflows/build.yml.
+images:
+  - name: ghcr.io/adamselir/backlog-ui
+    newTag: main

@@ -77,3 +77,53 @@ jobs:
           tags: |
             ghcr.io/adamselir/backlog-ui:main
             ghcr.io/adamselir/backlog-ui:${{ github.sha }}
+            ghcr.io/adamselir/backlog-ui:sha-${{ github.sha }}
+
+  # Pins the overlay to this commit's immutable image tag. ArgoCD then sees a
+  # pod spec change and rolls the pods by itself. Every push to main gets a
+  # new tag, so a merge that only touches a ConfigMap or SealedSecret rolls
+  # the pods too. The commit is pushed with GITHUB_TOKEN, which never starts
+  # another workflow run, so there is no build loop.
+  deploy:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: deploy-pin
+      cancel-in-progress: false
+    env:
+      IMAGE: ghcr.io/adamselir/backlog-ui
+      KFILE: k8s/kustomization.yaml
+      TAG: sha-${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Pin image tag
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3 4; do
+            git fetch origin main
+            git reset --hard origin/main
+            prev=$(grep -A1 -E "^ +- name: ${IMAGE}$" "$KFILE" | sed -n 's/^ *newTag: *//p')
+            if [ -z "$prev" ]; then
+              echo "::error::no images entry for $IMAGE in $KFILE"; exit 1
+            fi
+            # A slower run for an older commit must not roll back a newer pin.
+            if [[ "$prev" == sha-* ]] && git merge-base --is-ancestor "${GITHUB_SHA}" "${prev#sha-}" 2>/dev/null; then
+              echo "$KFILE already pins $prev, which includes ${GITHUB_SHA}"; exit 0
+            fi
+            sed -i -E "\|^ +- name: ${IMAGE}$|{n;s|newTag: .*|newTag: ${TAG}|}" "$KFILE"
+            grep -q "newTag: ${TAG}$" "$KFILE"
+            git add "$KFILE"
+            git commit -m "deploy: pin ${IMAGE##*/} to ${TAG} [skip ci]"
+            if git push origin HEAD:main; then exit 0; fi
+            sleep $((attempt * 5))
+          done
+          echo "::error::could not push the pin after 4 attempts"; exit 1
