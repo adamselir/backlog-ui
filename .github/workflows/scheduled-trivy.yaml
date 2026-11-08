@@ -22,6 +22,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+          build-args: APT_REFRESH=${{ github.run_id }}
           platforms: linux/amd64
           load: true
           tags: backlog-ui:rescan
