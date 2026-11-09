@@ -9,4 +9,4 @@ resources:
 # Pinned to the commit's image by the deploy job in .github/workflows/build.yml.
 images:
   - name: ghcr.io/adamselir/backlog-ui
-    newTag: sha-fa84060ba302ed47c7f32c68ff3ccf9c2a19eb9b
+    newTag: sha-6540780c65e93500afb97cd1da13e81150a365f0
