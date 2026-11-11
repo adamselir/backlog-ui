@@ -1,0 +1,37 @@
+name: GHCR Cleanup
+
+# Prunes old versions of ghcr.io/adamselir/backlog-ui so the account
+# stays under its Packages storage limit (GHCR refuses pushes once it is hit).
+# Keeps the 3 newest tagged images (each build is one image tagged main and
+# its sha tags), never touches "main", "latest" or version tags (anything
+# with a dot, like 1.2.3), and deletes untagged leftovers. Platform children
+# and attestation manifests of kept images are kept with them.
+#
+# Manual runs default to a dry run that only logs what would be deleted.
+# Scheduled runs delete for real.
+on:
+  schedule:
+    - cron: "30 7 * * 1"
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Only log what would be deleted"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - uses: dataaxiom/ghcr-cleanup-action@v1
+        with:
+          packages: backlog-ui
+          keep-n-tagged: 3
+          exclude-tags: "main,latest,*.*"
+          delete-untagged: true
+          dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run }}
