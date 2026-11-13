@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -15,6 +16,28 @@ from app.config import Settings
 from app.routes import register_routes
 
 log = logging.getLogger("backlog-ui")
+
+
+_SAFE_URL_SCHEMES = frozenset({"http", "https"})
+
+
+def safe_url(value: object) -> str | None:
+    """Return value only if it is an absolute http(s) URL with a host.
+
+    source_url is bus-controlled (audit findings, alerts), so it is untrusted.
+    Jinja autoescape stops attribute breakout but not `javascript:`/`data:`
+    hrefs. Browsers ignore whitespace/control chars inside a scheme, so any
+    such char rejects the URL outright rather than being normalised.
+    """
+    if not isinstance(value, str):
+        return None
+    url = value.strip()
+    if not url or any(ord(c) < 0x21 or ord(c) == 0x7F for c in url):
+        return None
+    parts = urlsplit(url)
+    if parts.scheme.lower() not in _SAFE_URL_SCHEMES or not parts.netloc:
+        return None
+    return url
 
 
 def create_app(
@@ -55,6 +78,7 @@ def create_app(
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
     templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
+    templates.env.filters["safe_url"] = safe_url
     register_routes(app, templates=templates, client=client)
     return app
 

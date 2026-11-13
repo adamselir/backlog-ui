@@ -6,7 +6,8 @@
   </header>
   <p>{{ item.description or '(no description)' }}</p>
   {% if item.evidence %}<pre class="evidence">{{ item.evidence }}</pre>{% endif %}
-  {% if item.source_url %}<a href="{{ item.source_url }}">source</a>{% endif %}
+  {% set src = item.source_url | safe_url %}
+  {% if src %}<a href="{{ src }}" rel="noopener noreferrer" target="_blank">source</a>{% endif %}
   <dl>
     <dt>status</dt><dd>{{ item.status }}</dd>
     <dt>severity</dt><dd>{{ item.severity or '-' }}</dd>

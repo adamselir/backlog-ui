@@ -177,3 +177,39 @@ def test_items_fragment_propagates_user_for_audit(client):
         assert sent.headers.get("X-Forwarded-User") == "eli@amy-eli.com"
         # Browser JWT is never forwarded.
         assert "Cf-Access-Jwt-Assertion" not in sent.headers
+
+
+@pytest.mark.parametrize(
+    "bad_url",
+    [
+        "javascript:alert(document.cookie)",
+        "  JaVaScRiPt:alert(1)",
+        "\tjavascript:alert(1)",
+        "data:text/html,<script>alert(1)</script>",
+        "vbscript:msgbox(1)",
+        "//evil.example/x",
+    ],
+)
+def test_drawer_drops_non_http_source_url(client, bad_url):
+    """CA (f8fa3fff): source_url is bus-controlled; only http(s) may become an href."""
+    with respx.mock(base_url="http://fake:8000") as mock:
+        mock.get("/api/v1/backlog/items/x").respond(
+            200, json={"item": _item(id="x", source_url=bad_url)}
+        )
+        r = client.get("/items/x")
+        assert r.status_code == 200
+        assert ">source</a>" not in r.text
+        assert "javascript:" not in r.text.lower()
+        assert "data:text/html" not in r.text
+
+
+def test_drawer_renders_https_source_url_with_noopener(client):
+    with respx.mock(base_url="http://fake:8000") as mock:
+        mock.get("/api/v1/backlog/items/x").respond(
+            200,
+            json={"item": _item(id="x", source_url="https://github.com/adamselir/x/pull/1")},
+        )
+        r = client.get("/items/x")
+        assert r.status_code == 200
+        assert 'href="https://github.com/adamselir/x/pull/1"' in r.text
+        assert 'rel="noopener noreferrer"' in r.text
